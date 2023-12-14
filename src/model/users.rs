@@ -1,0 +1,23 @@
+use std::hash::{Hash, Hasher};
+use serde::{Deserialize, Serialize};
+use diesel::prelude::*;
+
+#[derive(Debug, Serialize, Queryable, Selectable)]
+#[diesel(table_name = crate::model::schema::users)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct User {
+    pub(crate) id: i32,
+    pub(crate) username: String
+}
+
+impl Hash for User {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
+#[derive(Debug, Deserialize, Insertable)]
+#[diesel(table_name = crate::model::schema::users)]
+pub struct CreateUser {
+    pub(crate) username: String
+}
