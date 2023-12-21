@@ -10,14 +10,25 @@ pub enum UserRepoError {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum EncryptionError<> {
+pub enum EncryptionError {
     HashError,
     VerifyError
+}
+
+#[derive(Debug)]
+pub enum AuthError {
+    MissingUserName,
+    MissingPassword,
+    UserNotFound,
+    IncorrectPassword,
+    TokenCreation,
+    InvalidToken,
 }
 
 pub enum AppError {
     UserRepoError(UserRepoError),
     EncryptionError(EncryptionError),
+    AuthError(AuthError)
 }
 
 // implementations
@@ -30,6 +41,18 @@ impl IntoResponse for AppError {
             }
             AppError::UserRepoError(UserRepoError::InvalidUserName) => {
                 (StatusCode::UNPROCESSABLE_ENTITY, "Invalid username")
+            }
+            AppError::AuthError(AuthError::IncorrectPassword) => {
+                (StatusCode::UNAUTHORIZED, "Invalid password")
+            }
+            AppError::AuthError(AuthError::UserNotFound) => {
+                (StatusCode::UNAUTHORIZED, "User not found")
+            }
+            AppError::AuthError(AuthError::MissingUserName) => {
+                (StatusCode::UNAUTHORIZED, "Username is missing")
+            }
+            AppError::AuthError(AuthError::MissingPassword) => {
+                (StatusCode::UNAUTHORIZED, "Password is missing")
             }
             _ => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Unknown server error")
@@ -52,5 +75,11 @@ impl From<UserRepoError> for AppError {
 impl From<EncryptionError> for AppError {
     fn from(inner: EncryptionError) -> Self {
         AppError::EncryptionError(inner)
+    }
+}
+
+impl From<AuthError> for AppError {
+    fn from(inner: AuthError) -> Self {
+        AppError::AuthError(inner)
     }
 }

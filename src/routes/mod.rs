@@ -1,1 +1,1 @@
-pub mod user_roues;
+pub mod user_routes;
