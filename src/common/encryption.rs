@@ -79,7 +79,7 @@ mod tests {
 
         let wrong_string_to_verify = "wrong_string";
 
-        let result = svc.validate(wrong_string_to_verify, &hashed);;
+        let result = svc.validate(wrong_string_to_verify, &hashed);
 
         assert_eq!(expected, result);
     }
