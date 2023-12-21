@@ -2,28 +2,46 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use bb8::Pool;
 
-use diesel::SelectableHelper;
+use diesel::{QueryDsl, SelectableHelper};
 use diesel_async::{AsyncPgConnection, RunQueryDsl};
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
-use uuid::Uuid;
 use crate::model::errors::UserRepoError;
 use crate::model::users::{CreateUser, User};
 
 #[async_trait]
 pub trait UserRepo {
-    async fn find(&self, user_id: Uuid) -> Result<User, UserRepoError>;
+    async fn find(&self, user_id: i32) -> Result<User, UserRepoError>;
     async fn create(&self, _params: CreateUser) -> Result<User, UserRepoError>;
 }
 
 // implementations
 pub struct CustomUserRepo {
-    pub(crate) pool:  Pool<AsyncDieselConnectionManager<AsyncPgConnection>>
+    pool:  Pool<AsyncDieselConnectionManager<AsyncPgConnection>>
+}
+
+impl CustomUserRepo {
+    pub fn new(pool:  Pool<AsyncDieselConnectionManager<AsyncPgConnection>>) -> Self {
+        CustomUserRepo{pool}
+    }
 }
 
 #[async_trait]
 impl UserRepo for CustomUserRepo {
-    async fn find(&self, user_id: Uuid) -> Result<User, UserRepoError> {
-        unimplemented!()
+    async fn find(&self, q_user_id: i32) -> Result<User, UserRepoError> {
+        use crate::model::schema::users::dsl::*;
+        let mut conn = self.pool.get().await.expect("Could not get pool connection");
+
+        let user = users
+            .find(q_user_id)
+            .select(User::as_select())
+            .first(&mut conn)
+            .await;
+
+        return if user.is_ok() {
+            Ok(user.unwrap())
+        } else {
+            Err(UserRepoError::NotFound)
+        }
     }
 
     async fn create(&self, _params: CreateUser) -> Result<User, UserRepoError> {
@@ -37,7 +55,7 @@ impl UserRepo for CustomUserRepo {
             .await;
 
         match saved {
-            Err(e) => Err(UserRepoError::InvalidUserName),
+            Err(_) => Err(UserRepoError::InvalidUserName),
             Ok(u) => Ok(u)
         }
     }

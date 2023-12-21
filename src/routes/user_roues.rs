@@ -1,24 +1,25 @@
 use axum::extract::{Path, State};
 use axum::Json;
-use uuid::Uuid;
-use crate::model::errors::AppError;
+use crate::AppState;
+use crate::model::errors::{AppError};
 use crate::model::users::{CreateUser, User};
-use crate::repos::user_repo::DynUserRepo;
 
 pub async fn users_show(
-    Path(user_id): Path<Uuid>,
-    State(user_repo): State<DynUserRepo>
+    Path(user_id): Path<i32>,
+    State(state): State<AppState>
 ) -> Result<Json<User>, AppError> {
-    let user = user_repo.find(user_id).await?;
+    let user = state.user_repo.find(user_id).await?;
 
     Ok(user.into())
 }
 
 pub async fn users_create(
-    State(user_repo): State<DynUserRepo>,
+    State(state): State<AppState>,
     Json(params): Json<CreateUser>
 ) -> Result<Json<User>, AppError> {
-    let user = user_repo.create(params).await?;
+    let pw_hash = state.encryption_service.hash(&params.password)?;
+
+    let user = state.user_repo.create(CreateUser{password: pw_hash, ..params}).await?;
 
     Ok(user.into())
 }

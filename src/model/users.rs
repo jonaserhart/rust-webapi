@@ -7,7 +7,10 @@ use diesel::prelude::*;
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct User {
     pub(crate) id: i32,
-    pub(crate) username: String
+    pub(crate) username: String,
+    pub(crate) email: String,
+    #[serde(skip_serializing)]
+    pub(crate) password: String
 }
 
 impl Hash for User {
@@ -19,5 +22,7 @@ impl Hash for User {
 #[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = crate::model::schema::users)]
 pub struct CreateUser {
-    pub(crate) username: String
+    pub(crate) username: String,
+    pub(crate) email: String,
+    pub(crate) password: String
 }

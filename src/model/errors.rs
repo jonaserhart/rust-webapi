@@ -9,8 +9,15 @@ pub enum UserRepoError {
     InvalidUserName
 }
 
+#[derive(Debug, PartialEq)]
+pub enum EncryptionError<> {
+    HashError,
+    VerifyError
+}
+
 pub enum AppError {
-    UserRepoError(UserRepoError)
+    UserRepoError(UserRepoError),
+    EncryptionError(EncryptionError),
 }
 
 // implementations
@@ -23,6 +30,9 @@ impl IntoResponse for AppError {
             }
             AppError::UserRepoError(UserRepoError::InvalidUserName) => {
                 (StatusCode::UNPROCESSABLE_ENTITY, "Invalid username")
+            }
+            _ => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Unknown server error")
             }
         };
 
@@ -37,5 +47,10 @@ impl IntoResponse for AppError {
 impl From<UserRepoError> for AppError {
     fn from(inner: UserRepoError) -> Self {
         AppError::UserRepoError(inner)
+    }
+}
+impl From<EncryptionError> for AppError {
+    fn from(inner: EncryptionError) -> Self {
+        AppError::EncryptionError(inner)
     }
 }
