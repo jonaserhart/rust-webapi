@@ -23,12 +23,15 @@ pub enum AuthError {
     IncorrectPassword,
     TokenCreation,
     InvalidToken,
+    TokenMissing,
+    MissingCookie,
+    InvalidCookie,
 }
 
 pub enum AppError {
     UserRepoError(UserRepoError),
     EncryptionError(EncryptionError),
-    AuthError(AuthError)
+    AuthError(AuthError),
 }
 
 // implementations
@@ -53,6 +56,15 @@ impl IntoResponse for AppError {
             }
             AppError::AuthError(AuthError::MissingPassword) => {
                 (StatusCode::UNAUTHORIZED, "Password is missing")
+            }
+            AppError::AuthError(AuthError::InvalidToken) => {
+                (StatusCode::UNAUTHORIZED, "Invalid token")
+            }
+            AppError::AuthError(AuthError::TokenMissing) => {
+                (StatusCode::UNAUTHORIZED, "Missing token")
+            }
+            AppError::AuthError(AuthError::MissingCookie) => {
+                (StatusCode::UNAUTHORIZED, "Missing cookie")
             }
             _ => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Unknown server error")

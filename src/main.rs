@@ -6,15 +6,12 @@ mod common;
 use std::sync::Arc;
 use axum::Router;
 use axum::routing::{get, post};
-use diesel_async::RunQueryDsl;
+
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::repos::user_repo::{CustomUserRepo, DynUserRepo};
-use crate::routes::user_routes::{users_create, users_show, user_authorize};
+use crate::routes::user_routes::{users_create, get_user_by_id, authorize, refresh_token};
 use dotenv::dotenv;
-
-use diesel_async::{
-    pooled_connection::AsyncDieselConnectionManager,
-};
+use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use crate::common::jwt::Keys;
 
 #[derive(Clone)]
@@ -22,8 +19,8 @@ struct AppConfig {
     jwt_keys: Keys
 }
 
-impl AppConfig{
-    pub fn new(jwt_keys: Keys) -> Self{
+impl AppConfig {
+     fn new(jwt_keys: Keys) -> Self{
         Self{
             jwt_keys
         }
@@ -51,7 +48,7 @@ async fn main() {
     if dotenv().is_err() {
         tracing::warn!("Could not read .env, using manually set env variables...");
     } else {
-        tracing::debug!("Read .env")
+        tracing::debug!("Loaded .env file")
     }
 
     // Config
@@ -66,7 +63,7 @@ async fn main() {
     let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
     let keys = Keys::new(secret.as_bytes());
 
-    let app_config = AppConfig{ jwt_keys: keys };
+    let app_config = AppConfig::new(keys);
 
     let state = AppState {
         user_repo,
@@ -75,8 +72,9 @@ async fn main() {
 
     let user_router = Router::new()
         .route("/", post(users_create))
-        .route("/:id", get(users_show))
-        .route("/authorize", post(user_authorize));
+        .route("/:id", get(get_user_by_id))
+        .route("/authorize", post(authorize))
+        .route("/refresh-token", get(refresh_token));
 
     let app = Router::new()
         .nest("/users", user_router)

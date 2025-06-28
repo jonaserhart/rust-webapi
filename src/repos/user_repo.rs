@@ -38,7 +38,7 @@ impl UserRepo for CustomUserRepo {
             .select(User::as_select())
             .first(&mut conn)
             .await
-            .map_err(|err| {
+            .map_err(|_| {
                 UserRepoError::NotFound
             })
     }

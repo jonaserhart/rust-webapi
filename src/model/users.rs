@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 use serde::{Deserialize, Serialize};
 use diesel::prelude::*;
 
-#[derive(Debug, Serialize, Queryable, Selectable)]
+#[derive(Debug, Serialize, Queryable, Selectable, Clone)]
 #[diesel(table_name = crate::model::schema::users)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct User {

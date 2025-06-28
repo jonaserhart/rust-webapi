@@ -1,25 +1,22 @@
 use axum::extract::{Path, State};
-use axum::http::HeaderMap;
-use axum::http::header::SET_COOKIE;
 use axum::Json;
 use axum::response::IntoResponse;
-use jsonwebtoken::{encode, Header};
 use crate::AppState;
-use crate::model::auth::{AuthResponse, AuthSubmission};
+use crate::model::auth::AuthSubmission;
 use crate::model::errors::{AppError, AuthError};
 use crate::model::users::{CreateUser, User};
 use crate::common::encryption;
 use crate::common::encryption::validate;
-use crate::common::jwt::Claims;
-use cookie::Cookie;
+use crate::common::jwt::{RefreshTokenClaims, AccessTokenClaims, generate_token};
 
-const ONE_WEEK_IN_SECS: i64 = 604600;
-const FIVE_MIN_IN_SECS: i64 = 300;
 
-pub async fn users_show(
+
+pub async fn get_user_by_id(
     Path(user_id): Path<i32>,
+    claims: AccessTokenClaims,
     State(state): State<AppState>
 ) -> Result<Json<User>, AppError> {
+    tracing::info!("Claims: {claims}");
     let user = state.user_repo.find(user_id).await?;
 
     Ok(user.into())
@@ -36,8 +33,7 @@ pub async fn users_create(
     Ok(user.into())
 }
 
-
-pub async fn user_authorize(
+pub async fn authorize(
     State(state): State<AppState>,
     Json(auth_info): Json<AuthSubmission>
 ) -> Result<impl IntoResponse, AppError> {
@@ -45,7 +41,7 @@ pub async fn user_authorize(
         return Err(AuthError::MissingUserName.into());
     }
     if auth_info.password.is_empty() {
-        return Err(AuthError::MissingUserName.into());
+        return Err(AuthError::MissingPassword.into());
     }
 
     let user = state.user_repo.find_by_username_or_email(&auth_info.user_or_email)
@@ -55,36 +51,21 @@ pub async fn user_authorize(
     validate(&auth_info.password, &user.password)
         .map_err(|_| { AuthError::IncorrectPassword })?;
 
-    let now = chrono::offset::Utc::now().timestamp();
+    let response = generate_token(user, &state.app_config.jwt_keys)?;
 
-    let claims = Claims {
-        exp: now + FIVE_MIN_IN_SECS,
-        uid: user.id
-    };
-
-    let refresh_claims = Claims{
-        exp: now + ONE_WEEK_IN_SECS,
-        uid: user.id
-    };
-
-    let jwt = encode(&Header::default(), &claims, &state.app_config.jwt_keys.encoding)
-        .map_err(|_| AuthError::TokenCreation)?;
-
-    let body = AuthResponse{
-        user_id: user.id,
-        token: jwt,
-    };
-
-    let refresh_token = encode(&Header::default(), &refresh_claims, &state.app_config.jwt_keys.encoding)
-        .map_err(|_| AuthError::TokenCreation)?;
-
-    let cookie = Cookie::build(("refresh_token", refresh_token.clone()))
-        .secure(true)
-        .http_only(true)
-        .build();
-
-    let mut headers = HeaderMap::new();
-    headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
-
-    Ok((headers, Json(body)))
+    Ok(response)
 }
+
+pub async fn refresh_token(
+    refresh_token_claims: RefreshTokenClaims,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, AppError> {
+    let user = state.user_repo.find(refresh_token_claims.uid)
+        .await
+        .map_err(|_| { AuthError::UserNotFound })?;
+
+    let result = generate_token(user, &state.app_config.jwt_keys)?;
+
+    Ok(result)
+}
+
